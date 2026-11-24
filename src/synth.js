@@ -1,87 +1,29 @@
 import * as THREE from 'three';
 import {AnaglyphEffect} from 'three/addons/effects/AnaglyphEffect.js';
-const T=Math.PI*2;
-const vertex=`
-varying vec2 vUv;
-uniform float phase, seed, fluid, turbulence;
-void main(){
-vUv=uv;vec3 p=position;
-p.z+=.12*sin(p.x*5.+phase+seed)*cos(p.y*4.-phase)*fluid;
-p.z+=.08*sin(p.y*9.+phase*2.+seed)*turbulence;
-gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
-}`;
-const fragment=`
-precision highp float;
-varying vec2 vUv;
-uniform float phase,seed,voice,level,rough,heat,cold,fragile,diffuse,light,fluid,turbulence;
-uniform vec3 ink,accent;
-uniform float family,growth,depth,weight,air;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
-float fb(vec2 p){float n=0.,a=.5;for(int i=0;i<5;i++){n+=a*noise(p);p=mat2(1.6,1.2,-1.2,1.6)*p;a*=.5;}return n;}
-
-// Periodic fields inspired by activator-inhibitor patterns, branching and tissue folding.
-// These are analytic approximations, not numerical biological simulations.
-float ridge(vec2 p){return 1.-abs(2.*fb(p)-1.);}
-vec2 warp(vec2 p,vec2 o){return p+.45*(vec2(fb(p*2.7+seed+o),fb(p.yx*2.7-seed-o))-.5);}
-float cells(vec2 p){vec2 i=floor(p),f=fract(p);float a=10.,b=10.;for(int y=-1;y<=1;y++){for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 h=vec2(hash(i+g+seed),hash(i+g+seed+37.));float d=length(g+h-f);if(d<a){b=a;a=d;}else b=min(b,d);}}return b-a;}
-void main(){
-vec2 p=(vUv-.5)*2.;float t=phase;vec2 o=vec2(cos(t),sin(t));
-float sym=.35+.35*sin(seed);p.x=mix(p.x,abs(p.x)-.12,sym);
-p+=.08*fluid*vec2(sin(p.y*4.+t),cos(p.x*4.-t));
-p=warp(p,o*.12);p=warp(p*1.15,o*.08)/1.15;
-p+=.15*turbulence*(vec2(fb(p*5.+o*.2),fb(p.yx*5.-o*.2))-.5);
-p*=1.-.12*heat+.1*cold-.08*growth;
-float n=fb(p*3.+seed),r=length(p),ang=atan(p.y,p.x);
-float field=0.,detail=0.;
-if(family<.5){ // activator-inhibitor-like labyrinth
-float v=fb(p*5.+seed+o*.08);field=1.-smoothstep(.08,.24,abs(sin(v*24.+n*5.)));detail=v;
-}else if(family<1.5){ // cellular interfaces
-float v=cells(p*(5.+growth*3.)+seed);field=exp(-v*(9.+cold*8.));detail=fb(p*13.+seed);
-}else if(family<2.5){ // dendritic vascular networks
-float v=ridge(p*vec2(4.,2.)+seed);field=pow(v,7.)*smoothstep(.35,.7,n);detail=ridge(p*14.+seed);
-}else if(family<3.5){ // folded tissue
-float v=sin(p.y*18.+fb(p*3.+seed)*14.+.3*cos(t));field=pow(.5+.5*v,3.);detail=fb(p*8.+seed);
-}else if(family<4.5){ // radial skeletal growth
-float v=sin(ang*(5.+floor(mod(seed,5.)))+r*8.+n*5.);field=exp(-abs(v)*8.)*(.5+.5*sin(r*25.+n*4.));detail=n;
-}else if(family<5.5){ // spectral membranes
-float v=fb(p*4.+seed);field=exp(-abs(v-.47)*24.)+.35*exp(-abs(v-.57)*35.);detail=v;
-}else if(family<6.5){ // chemotactic trail-like networks
-float v=fb(p*6.+seed);field=pow(1.-abs(sin(v*18.+p.y*2.)),5.);detail=fb(p*16.+seed);
-}else{ // colony aggregation
-float v=cells(p*4.+seed);field=smoothstep(.12,.36,v)*smoothstep(.35,.62,n);detail=fb(p*10.+seed);}
-float silhouette=1.-smoothstep(.43,.94,r+.45*(n-.5));
-float holes=smoothstep(.23,.48,fb(p*2.+seed+17.));
-float grain=noise(p*180.+seed);
-float membrane=exp(-abs(n-.48)*30.);
-float fissure=abs(sin(fb(p*6.+seed)*42.));
-float alpha=field*silhouette*mix(.45,1.,holes);
-alpha=mix(alpha,alpha*.6+membrane*silhouette*.25,diffuse);
-alpha*=mix(1.,smoothstep(.025,.2,fissure),fragile*.7);
-alpha*=mix(1.,smoothstep(.1,.55,detail),rough*.7);
-alpha*=.65+.35*weight;
-float h=fb(p*12.+seed);float relief=clamp(.5+5.*(fb((p+vec2(.012,.018))*12.+seed)-h),0.,1.);
-vec3 c=mix(ink,accent,clamp(detail+.16*heat-.12*cold,0.,1.));
-c*=.55+.75*relief+rough*(grain-.5)*.22;
-c+=vec3(.14,.13,.11)*membrane*(.3+light);
-alpha*=1.-.35*air;
-float fade=1.-smoothstep(.78,.99,max(abs(p.x),abs(p.y)));
-gl_FragColor=vec4(c,clamp(alpha*fade*level,0.,1.));
-
-}`;
-const palettes=[['#ffffff','#182d32','#527d80','#a5b9b5'],['#ffffff','#242d31','#80664b','#a7a89c'],['#ffffff','#30243c','#796aa1','#b58c90'],['#ffffff','#233c31','#648b75','#b28b52'],['#ffffff','#171717','#555555','#999999'],['#ffffff','#20201d','#8e8070','#b6a18b'],['#ffffff','#18374b','#466b83','#8daeb9'],['#ffffff','#382b21','#826a54','#b99c78']];
+const TAU=Math.PI*2;
+const rng=s=>()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296};
+const palettes=[['#202a29','#587a70','#b49c73'],['#202020','#777777','#b0b0b0'],['#24384d','#648b9b','#b68c65'],['#4c302b','#a16b52','#c9a77e'],['#39304d','#827396','#b9a0ad']];
+const canvas2=()=>{const c=document.createElement('canvas');c.width=c.height=768;return c};
+function line(g,pts,color,width,alpha){g.globalAlpha=alpha;g.strokeStyle=color;g.lineWidth=width;g.lineCap='round';g.lineJoin='round';g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke()}
+function wash(g,x,y,r,color,a){const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,color);gr.addColorStop(.72,color+'55');gr.addColorStop(1,color+'00');g.globalAlpha=a;g.fillStyle=gr;g.fillRect(x-r,y-r,r*2,r*2)}
+function layout(k,r){if(k===0)return [[384,384,1]];if(k===1)return Array.from({length:7},()=>[100+r()*568,100+r()*568,.18+r()*.25]);if(k===2)return [[240,420,.8],[540,450,.65]];if(k===3)return [[280,280,.8],[450,480,.8]];if(k===4)return [[210,350,1.1],[600,580,.2]];return Array.from({length:4},(_,i)=>[160+i*145,220+r()*330,.3+r()*.3])}
+function ink(g,r,p){for(let j=0;j<12;j++){let x=(r()-.5)*220,y=(r()-.5)*180;const rad=25+r()*100;for(let k=0;k<32;k++){const a=r()*TAU,d=r()*rad;wash(g,x+Math.cos(a)*d,y+Math.sin(a)*d,8+r()*35,p[j%3],.08+r()*.13)}const pts=[];for(let k=0;k<50;k++){x+=(r()-.5)*18;y+=r()*5;pts.push([x,y])}line(g,pts,p[0],.7+r()*2,.25)}}
+function network(g,r,p){const nodes=[[0,0,0]];for(let i=0;i<850;i++){const a=r()*TAU,d=Math.sqrt(r())*280,x=Math.cos(a)*d,y=Math.sin(a)*d;let best=0,dist=Infinity;for(let j=0;j<nodes.length;j++){const n=nodes[j],dd=(n[0]-x)**2+(n[1]-y)**2;if(dd<dist){dist=dd;best=j}}const n=nodes[best],l=Math.sqrt(dist)||1,step=Math.min(l,9+r()*9),q=[n[0]+(x-n[0])/l*step,n[1]+(y-n[1])/l*step,n[2]+1];nodes.push(q);line(g,[n,q],p[i%3],Math.max(.35,3.8-q[2]*.09),.35+r()*.45)}}
+function skeleton(g,r,p){const n=5+Math.floor(r()*10),phase=r()*TAU;for(let j=1;j<17;j++){const pts=[];for(let k=0;k<=240;k++){const a=k/240*TAU,rad=j*14*(1+.14*Math.cos(n*a+phase)+.07*Math.sin(a*3+j*.3));pts.push([Math.cos(a)*rad,Math.sin(a)*rad*.78])}line(g,pts,p[j%3],.65+j*.04,.7)}for(let j=0;j<n*3;j++){const a=j/(n*3)*TAU,pts=[];for(let k=1;k<18;k++){const t=k/18,rad=t*260,ang=a+.15*Math.sin(t*4+phase);pts.push([Math.cos(ang)*rad,Math.sin(ang)*rad*.78])}line(g,pts,p[0],1.2,.65)}}
+function folds(g,r,p){for(let j=0;j<38;j++){const pts=[];for(let i=0;i<100;i++){const t=i/99,a=t*TAU,rad=65+j*4+28*Math.sin(a*3+j*.12)+18*Math.cos(a*5-j*.1);pts.push([Math.cos(a)*rad+Math.sin(j*.12)*55,Math.sin(a)*rad*.65+j*2-38])}g.globalAlpha=.10;g.fillStyle=p[j%3];g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fill();line(g,pts,p[0],.7,.22)}}
+function imprint(g,r,p){for(let j=0;j<16;j++){const a=r()*TAU,x=Math.cos(a)*r()*190,y=Math.sin(a)*r()*190;for(let i=0;i<130;i++){const t=r()*TAU,d=Math.sqrt(r())*65;const xx=x+Math.cos(t)*d,yy=y+Math.sin(t)*d;g.globalAlpha=.15+r()*.6;g.fillStyle=p[j%3];g.fillRect(xx,yy,.5+r()*5,.5+r()*3);if(i%8===0)line(g,[[xx,yy],[xx+(r()-.5)*25,yy+(r()-.5)*25]],p[0],.6,.35)}}}
+function attractor(g,r,p){let x=.1,y=.1,z=.1;const a=9+r()*4,b=24+r()*8,c=2.5;const pts=[];for(let i=0;i<17000;i++){const dt=.006,dx=a*(y-x),dy=x*(b-z)-y,dz=x*y-c*z;x+=dx*dt;y+=dy*dt;z+=dz*dt;if(i>500)pts.push([x*9+(z-24)*3,y*7-(z-24)*5]);if(pts.length===180){line(g,pts,p[Math.floor(i/180)%3],.45,.17);pts.splice(0,179)}}}
+function reaction(g,r,p){const N=144,L=N*N;let a=new Float32Array(L).fill(1),b=new Float32Array(L),aa=new Float32Array(L),bb=new Float32Array(L);for(let j=0;j<20;j++){const x=15+Math.floor(r()*(N-30)),y=15+Math.floor(r()*(N-30));for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const i=(y+dy)*N+x+dx;b[i]=.8;a[i]=.4}}const F=.028+r()*.012,K=.055+r()*.009;for(let t=0;t<420;t++){for(let y=1;y<N-1;y++)for(let x=1;x<N-1;x++){const i=y*N+x,u=a[i],v=b[i],q=u*v*v;aa[i]=Math.max(0,Math.min(1,u+.2*(a[i-1]+a[i+1]+a[i-N]+a[i+N]-4*u)-q+F*(1-u)));bb[i]=Math.max(0,Math.min(1,v+.1*(b[i-1]+b[i+1]+b[i-N]+b[i+N]-4*v)+q-(F+K)*v))} [a,aa]=[aa,a];[b,bb]=[bb,b]}const c=document.createElement('canvas');c.width=c.height=N;const ctx=c.getContext('2d'),im=ctx.createImageData(N,N);const col=new THREE.Color(p[0]);for(let i=0;i<L;i++){const x=i%N-N/2,y=Math.floor(i/N)-N/2;im.data[i*4]=col.r*255;im.data[i*4+1]=col.g*255;im.data[i*4+2]=col.b*255;im.data[i*4+3]=Math.min(255,b[i]*650)*Math.max(0,Math.min(1,(68-Math.hypot(x,y))/12))}ctx.putImageData(im,0,0);g.globalAlpha=.9;g.drawImage(c,-280,-280,560,560)}
+function xray(g,r,p){for(let j=0;j<11;j++){const a=r()*TAU,x=(r()-.5)*240,y=(r()-.5)*240;g.save();g.translate(x,y);g.rotate(a);const w=20+r()*85,h=65+r()*130;g.globalAlpha=.14;g.fillStyle=p[j%3];g.beginPath();g.ellipse(0,0,w,h,0,0,TAU);g.fill();g.globalAlpha=.55;g.strokeStyle=p[0];g.lineWidth=.8;g.stroke();for(let k=0;k<12;k++){const yy=-h+k*h/6;line(g,[[0,-h],[w*.75*Math.sin(k/12*Math.PI),yy],[0,h]],p[0],.45,.18)}g.restore()}}
+const engines=[ink,network,skeleton,folds,imprint,attractor,reaction,xray];
+const vert=`varying vec2 vUv;uniform float phase,fluid,depth,turbulence;void main(){vUv=uv;vec3 p=position;p.z+=.06*sin(p.x*4.+phase)*cos(p.y*3.-phase)*(fluid+depth);p.xy+=.025*turbulence*vec2(sin(p.y*6.+phase),cos(p.x*5.-phase));gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`;
+const frag=`varying vec2 vUv;uniform sampler2D map;uniform float phase,fluid,rough,air,heat,cold,fragile,diffuse,weight,growth,light,turbulence;void main(){vec2 p=vUv-.5;p*=1.-.12*growth-.06*heat+.06*cold;p+=.018*fluid*vec2(sin(p.y*15.+phase),cos(p.x*12.-phase));p+=.009*turbulence*vec2(sin(p.y*31.+phase),cos(p.x*27.-phase));vec2 uv=p+.5;vec4 c=texture2D(map,uv);vec4 b=(texture2D(map,uv+vec2(.004,0.))+texture2D(map,uv-vec2(.004,0.))+texture2D(map,uv+vec2(0.,.004))+texture2D(map,uv-vec2(0.,.004)))*.25;c=mix(c,b,diffuse*.65);float n=fract(sin(dot(floor(uv*768.),vec2(127.1,311.7)))*43758.5453);c.a*=mix(1.,smoothstep(.05,.35,n),fragile*.6);c.a*= (1.-air*.45)*(.8+weight*.2);c.rgb=mix(c.rgb,vec3(.42,.24,.12),heat*.22);c.rgb=mix(c.rgb,vec3(.16,.32,.46),cold*.22);c.rgb+=rough*(n-.5)*.12+light*.09;float edge=step(0.,uv.x)*step(uv.x,1.)*step(0.,uv.y)*step(uv.y,1.);gl_FragColor=vec4(c.rgb,c.a*edge);}`;
 export function createSynth(canvas){
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
-renderer.setPixelRatio(1);renderer.setSize(800,800,false);
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,.1,50);camera.position.z=5;
-const stereo=new AnaglyphEffect(renderer);stereo.setSize(800,800);
-const geo=new THREE.PlaneGeometry(2.9,2.9,36,36);
-let palette,seed,mode=false;const targets=Array(12).fill(0),levels=Array(12).fill(0),meshes=[];
-for(let i=0;i<12;i++){const uniforms={phase:{value:0},seed:{value:0},voice:{value:i},level:{value:0},ink:{value:new THREE.Color()},accent:{value:new THREE.Color()}};for(const k of ['rough','heat','cold','fragile','diffuse','light','fluid','turbulence','family','growth','depth','weight','air'])uniforms[k]={value:0};
-const mat=new THREE.ShaderMaterial({vertexShader:vertex,fragmentShader:fragment,uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide});
-const mesh=new THREE.Mesh(geo,mat);scene.add(mesh);meshes.push(mesh)}
-function reset(){seed=Math.random()*100;palette=palettes[Math.floor(Math.random()*palettes.length)];scene.background=new THREE.Color(palette[0]);targets.fill(0);targets[0]=.85;targets[8]=.85;targets[10]=.7;meshes.forEach((m,i)=>{const u=m.material.uniforms;u.seed.value=seed+i*17;u.family.value=(Math.floor(seed)%8+Math.floor(i/2))%8;u.ink.value.set(palette[1+i%3]);u.accent.value.set(palette[1+(i+1)%3]);m.position.set(Math.sin(seed+i*2.4)*.38,Math.cos(seed+i*1.7)*.38,(i-5.5)*.12);m.rotation.z=Math.sin(seed+i)*.7;m.scale.setScalar(.65+.35*Math.abs(Math.sin(seed+i*3)));});return targets.map((v,i)=>v?i:-1).filter(i=>i>=0)}
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.setSize(800,800,false);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#ffffff');const camera=new THREE.PerspectiveCamera(42,1,.1,50);camera.position.z=5;const stereo=new AnaglyphEffect(renderer);stereo.setSize(800,800);
+const geo=new THREE.PlaneGeometry(3.5,3.5,32,32),keys=['fluid','rough','air','heat','cold','fragile','diffuse','weight','growth','depth','light','turbulence'],targets=Array(12).fill(0),levels=Array(12).fill(0);let mode=false,meshes=[],last=-1;
+function reset(){for(const m of meshes){scene.remove(m);m.material.uniforms.map.value.dispose();m.material.dispose()}meshes=[];const r=rng((Math.random()*4294967296)>>>0),family=(last+1+Math.floor(r()*7))%8;last=family;const p=palettes[Math.floor(r()*palettes.length)],composition=Math.floor(r()*6);const positions=layout(composition,r);for(let j=0;j<Math.min(positions.length,7);j++){const c=canvas2(),g=c.getContext('2d'),[x,y,scale]=positions[j];g.save();g.translate(x,y);g.scale(scale,scale);g.rotate((r()-.5)*1.4);engines[family](g,r,p);g.restore();const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;const uniforms={map:{value:tex},phase:{value:0}};for(const k of keys)uniforms[k]={value:0};const mat=new THREE.ShaderMaterial({vertexShader:vert,fragmentShader:frag,uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide});const m=new THREE.Mesh(geo,mat);m.position.z=(j-(positions.length-1)/2)*.09;scene.add(m);meshes.push(m)}targets.fill(0);levels.fill(0);targets[0]=.65;targets[8]=.45;targets[10]=.4;return [0,8,10]}
 reset();
-function render(seconds,settle=false){const t=(seconds%12)*T/12;meshes.forEach((m,i)=>{levels[i]=settle?targets[i]:levels[i]+(targets[i]-levels[i])*.09;const u=m.material.uniforms;u.phase.value=t;u.level.value=levels[i];for(const [k,j] of Object.entries({rough:1,heat:3,cold:4,fragile:5,diffuse:6,light:10,fluid:0,turbulence:11,growth:8,depth:9,weight:7,air:2}))u[k].value=levels[j];m.visible=levels[i]>.002;m.position.z=(i-5.5)*(.08+.09*levels[9])+.035*Math.sin(t+i);m.rotation.y=.045*Math.sin(t+i*.7);m.rotation.x=.035*Math.cos(t+i);});camera.position.x=.025*Math.sin(t);camera.lookAt(0,0,0);if(mode)stereo.render(scene,camera);else renderer.render(scene,camera)}
-return {render,reset,toggle(i){targets[i]=targets[i]?0:.75;return !!targets[i]},boost(i){targets[i]=Math.min(1,targets[i]+.25)},clear(){targets.fill(0)},setMode(v){mode=v},dispose(){geo.dispose();meshes.forEach(m=>m.material.dispose());stereo.dispose();renderer.dispose()}}
+function render(seconds,settle=false){const t=seconds%12*TAU/12;for(let i=0;i<12;i++)levels[i]=settle?targets[i]:levels[i]+(targets[i]-levels[i])*.08;meshes.forEach((m,i)=>{const u=m.material.uniforms;u.phase.value=t;keys.forEach((k,j)=>u[k].value=levels[j]);m.position.z=(i-(meshes.length-1)/2)*(.09+.13*levels[9]);m.rotation.y=.025*Math.sin(t+i);m.rotation.x=.02*Math.cos(t+i)});camera.position.x=.018*Math.sin(t);camera.lookAt(0,0,0);if(mode)stereo.render(scene,camera);else renderer.render(scene,camera)}
+return {render,reset,toggle(i){targets[i]=targets[i]?0:.75;return !!targets[i]},boost(i){targets[i]=Math.min(1,targets[i]+.25)},clear(){targets.fill(0)},setMode(v){mode=v},dispose(){for(const m of meshes){m.material.uniforms.map.value.dispose();m.material.dispose()}geo.dispose();stereo.dispose();renderer.dispose()}}
 }
