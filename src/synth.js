@@ -29,9 +29,57 @@ const frag=`varying vec2 vUv;uniform sampler2D map;uniform float fade;uniform fl
 export function createSynth(canvas){
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.setSize(800,800,false);
 const scene=new THREE.Scene();scene.background=new THREE.Color('#ffffff');const camera=new THREE.PerspectiveCamera(42,1,.1,50);camera.position.z=5;
-const geo=new THREE.PlaneGeometry(3.5,3.5,32,32),keys=['fluid','rough','air','heat','cold','fragile','diffuse','weight','growth','depth','light','turbulence'],targets=Array(12).fill(0),levels=Array(12).fill(0);let meshes=[],last=-1,dance=0;
-function reset(){for(const m of meshes){scene.remove(m);m.material.uniforms.map.value.dispose();m.material.dispose()}meshes=[];const r=rng((Math.random()*4294967296)>>>0),family=(last+1+Math.floor(r()*15))%16;last=family;dance=Math.floor(r()*12);const p=palettes[Math.floor(r()*palettes.length)],composition=Math.floor(r()*6);const positions=layout(composition,r);if(positions.length===1&&dance!==11)positions.push([384,384,.48]);for(let j=0;j<Math.min(positions.length,7);j++){const c=canvas2(),g=c.getContext('2d'),[x,y,scale]=positions[j];g.save();g.translate(x,y);g.scale(scale,scale);g.rotate((r()-.5)*1.4);engines[j>0&&r()<.45?Math.floor(r()*engines.length):family](g,r,p);g.restore();const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;const uniforms={map:{value:tex},phase:{value:0},fade:{value:1}};for(const k of keys)uniforms[k]={value:0};const mat=new THREE.ShaderMaterial({vertexShader:vert,fragmentShader:frag,uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide});const m=new THREE.Mesh(geo,mat);m.position.z=(j-(positions.length-1)/2)*.09;scene.add(m);meshes.push(m)}targets.fill(0);levels.fill(0);targets[0]=.65;targets[8]=.45;targets[10]=.4;return [0,8,10]}
+const geo=new THREE.PlaneGeometry(3.5,3.5,32,32),keys=['fluid','rough','air','heat','cold','fragile','diffuse','weight','growth','depth','light','turbulence'],targets=Array(12).fill(0),levels=Array(12).fill(0);let meshes=[],seed=1234;
+const voices=[
+[0,9,6,1], [14,2,4,11], [15,9,13,3], [0,10,6,4],
+[14,2,13,11], [4,12,7,5], [0,6,13,10], [8,12,4,8],
+[1,10,2,7], [11,3,7,3], [7,13,10,5], [5,9,15,8]
+];
+// Each sensor has a recognisable palette and an independent morphological voice.
+const voiceColors=[
+['#164e63','#0891b2','#67e8f9'],['#292524','#78716c','#a16207'],['#64748b','#a5b4fc','#c4b5fd'],['#9a3412','#ea580c','#fbbf24'],['#1e3a8a','#0284c7','#a5f3fc'],['#52525b','#a78bfa','#d4d4d8'],['#86198f','#db2777','#f9a8d4'],['#171717','#b91c1c','#eab308'],['#14532d','#65a30d','#a3a635'],['#312e81','#475569','#94a3b8'],['#a16207','#eab308','#fde68a'],['#581c87','#c026d3','#0e7490']
+];
+function remove(m){scene.remove(m);m.material.uniforms.map.value.dispose();m.material.dispose()}
+function addVoice(i,engineId,p,extra=false){
+ const r=rng((seed+Math.imul(i+1,2654435761)+(extra?7919:0))>>>0);
+ const c=canvas2(),g=c.getContext('2d');g.translate(384,384);g.scale(extra ? .75 : 1,extra ? .75 : 1);g.rotate((r()-.5)*.7);engines[engineId](g,r,p);
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+ const uniforms={map:{value:tex},phase:{value:0},fade:{value:0}};for(const k of keys)uniforms[k]={value:0};
+ const mat=new THREE.ShaderMaterial({vertexShader:vert,fragmentShader:frag,uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide});
+ const m=new THREE.Mesh(geo,mat);m.userData={voice:i,extra,alpha:0,retiring:false,angle:r()*TAU};scene.add(m);meshes.push(m);
+}
+const pairs=[[0,3,0],[8,5,1],[2,11,5],[1,6,6],[9,10,11]];
+function reconcile(){
+ const wanted=targets.map((v,i)=>v>0?i:-1).filter(i=>i>=0);
+ for(const m of meshes)m.userData.retiring=true;
+ for(const i of wanted){
+ let m=meshes.find(m=>m.userData.voice===i&&!m.userData.extra);
+ if(!m){const r=rng((seed+i*7919)>>>0);const v=voices[i];addVoice(i,v[Math.floor(r()*2)],voiceColors[i]);m=meshes[meshes.length-1]}
+ m.userData.retiring=false;
+ }
+ for(let j=0;j<pairs.length;j++){const [a,b,e]=pairs[j];if(!targets[a]||!targets[b])continue;let m=meshes.find(m=>m.userData.extra&&m.userData.voice===12+j);if(!m){addVoice(12+j,e,[voiceColors[a][0],voiceColors[b][1],voiceColors[a][2]],true);m=meshes[meshes.length-1]}m.userData.retiring=false;}
+}
+function reset(){for(const m of meshes)remove(m);meshes=[];seed=(Math.random()*4294967296)>>>0;targets.fill(0);levels.fill(0);targets[0]=.75;reconcile();return [0]}
+
 reset();
-function render(seconds,settle=false){const t=seconds%12*TAU/12;for(let i=0;i<12;i++)levels[i]=settle?targets[i]:levels[i]+(targets[i]-levels[i])*.08;meshes.forEach((m,i)=>{const u=m.material.uniforms;u.phase.value=t;keys.forEach((k,j)=>u[k].value=levels[j]);m.position.z=(i-(meshes.length-1)/2)*(.09+.13*levels[9]);const a=t+i*1.7,k=.35+levels[0]*.65;let x=0,y=0,z=0,scale=1,opacity=1;switch(dance){case 0:scale=1+.12*Math.sin(a);break;case 1:x=.25*Math.sin(a);y=.18*Math.cos(a*2);break;case 2:z=.25*Math.sin(a);x=.18*Math.cos(a);break;case 3:x=.32*Math.sin(a);y=.25*Math.cos(a);break;case 4:scale=.82+.18*Math.cos(a);z=.18*Math.sin(a);break;case 5:opacity=.35+.65*(.5+.5*Math.cos(a));break;case 6:x=.28*Math.sin(a);y=.12*Math.sin(2*a);break;case 7:scale=.85+.15*Math.sin(a);y=.15*Math.cos(a);break;case 8:x=.24*Math.cos(a);y=.24*Math.sin(a);z=.2*Math.sin(a);break;case 9:m.rotation.y=.18*Math.sin(a);scale=1+.08*Math.cos(a);break;case 10:y=.25*Math.sin(a);scale=1+.08*Math.cos(a);break;case 11:scale=1+.012*Math.sin(a);break}m.position.x=x*k;m.position.y=y*k;m.rotation.z=z*k;m.scale.setScalar(1+(scale-1)*k);u.fade.value=opacity;});camera.position.x=.018*Math.sin(t);camera.lookAt(0,0,0);renderer.render(scene,camera)}
-return {render,reset,toggle(i){targets[i]=targets[i]?0:.75;return !!targets[i]},boost(i){targets[i]=Math.min(1,targets[i]+.25)},clear(){targets.fill(0)},dispose(){for(const m of meshes){m.material.uniforms.map.value.dispose();m.material.dispose()}geo.dispose();renderer.dispose()}}
+function render(seconds,settle=false){
+ const t=seconds%12*TAU/12;
+ for(let i=0;i<12;i++)levels[i]=settle?targets[i]:levels[i]+(targets[i]-levels[i])*.08;
+ const active=meshes.filter(m=>!m.userData.retiring).length;
+ meshes.forEach((m,j)=>{
+ const d=m.userData,i=d.voice,idx=i%12,u=m.material.uniforms;
+ const strength=d.extra?Math.min(targets[pairs[i-12][0]],targets[pairs[i-12][1]]):targets[i];
+ const goal=d.retiring?0:(.45+.55*strength)/Math.max(1,Math.pow(active,.22));
+ d.alpha=settle?goal:d.alpha+(goal-d.alpha)*.075;
+ u.phase.value=t;keys.forEach((k,n)=>u[k].value=levels[n]*.65);
+ const a=t+d.angle;let x=0,y=0,z=0,scale=1;
+ switch(idx){case 0:x=.12*Math.sin(a);y=.12*Math.sin(2*a);break;case 1:scale=1+.025*Math.cos(a);break;case 2:x=.24*Math.sin(a);y=.18*Math.cos(a);break;case 3:scale=1+.18*Math.sin(a);y=.12*Math.cos(a);break;case 4:z=.12*Math.sin(a);break;case 5:x=.12*Math.cos(a);scale=.9+.1*Math.sin(a);break;case 6:scale=1+.16*Math.sin(a);break;case 7:scale=.94+.06*Math.cos(a);break;case 8:scale=.85+.15*Math.sin(a);break;case 9:y=.12*Math.sin(a);break;case 10:scale=1+.07*Math.cos(a);break;case 11:x=.18*Math.sin(a);y=.18*Math.cos(a);z=.3*Math.sin(a);break}
+ const spread=active>1 ? .22 : 0;
+ m.position.set(x+spread*Math.cos(d.angle),y+spread*Math.sin(d.angle),(j%17-8)*.025);
+ m.rotation.z=z;m.scale.setScalar(scale*(active>3 ? .8 : 1));u.fade.value=d.alpha*(idx===5 ? .72+.28*Math.cos(a):1);
+ });
+ meshes=meshes.filter(m=>{if(m.userData.retiring&&m.userData.alpha<.003){remove(m);return false}return true});
+ renderer.render(scene,camera);
+}
+return {render,reset,toggle(i){targets[i]=targets[i]?0:.75;reconcile();return !!targets[i]},boost(i){targets[i]=Math.min(1,targets[i]+.25);reconcile()},clear(){targets.fill(0);reconcile()},dispose(){for(const m of meshes)remove(m);geo.dispose();renderer.dispose()}}
 }
