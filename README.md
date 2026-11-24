@@ -1,10 +1,7 @@
 # SENSOGRAPHY •°
-See what you feel.
+React + Vite + Three.js. Twelve persistent shader voices on deformable spatial membranes, cyclic 12-second motion, standard and red-cyan stereoscopic rendering. Tap a sensor to toggle, context menu to boost. Tap center to reveal. Video export uses MediaRecorder (WebM or MP4 depending on browser), PNG capture and local still gallery. Requires WebGL2. No AI or backend.
 
-React + Vite. Local procedural art, no AI or server. 16 Canvas 2D grammars, 10 palettes, 12 radial SVG controls (last four influences), blended transitions, exact 960px PNG capture, local IndexedDB gallery and optional notes.
+npm install && npm run dev
+npm run build
 
-Run npm install && npm run dev. Production: npm run build. Deploy dist on Vercel with Vite preset. The service worker targets an origin-root deployment.
-
-Not a psychological assessment. Art has no automatically assigned meaning.
-
-Validation needed: mobile visual diversity, rendering latency, offline installation, PNG sharing. No GPU shader or high-resolution rerender of crossfades in this version.
+Deploy dist at origin root on Vercel. GPU performance, shader compilation, stereoscopic comfort and video seam require device testing. Gallery currently stores stills, not editable compositions. Not a psychological assessment.
