@@ -19,52 +19,54 @@ uniform float family,growth,depth,weight,air;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
 float fb(vec2 p){float n=0.,a=.5;for(int i=0;i<5;i++){n+=a*noise(p);p=mat2(1.6,1.2,-1.2,1.6)*p;a*=.5;}return n;}
-float ell(vec2 p,vec2 b){return (length(p/b)-1.)*min(b.x,b.y);}
-float join(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
-float seg(vec2 p,vec2 a,vec2 b){vec2 q=p-a,v=b-a;return length(q-v*clamp(dot(q,v)/dot(v,v),0.,1.));}
-float morph(vec2 p,float f){
-float d=2.;vec2 q=vec2(abs(p.x),p.y);
-if(f<.5){d=join(ell(p-vec2(0,.35),vec2(.19,.23)),ell(p+vec2(0,.16),vec2(.29,.49)),.15);d=join(d,seg(q,vec2(.14,.1),vec2(.55,-.25))-.065,.12);}
-else if(f<1.5){d=join(ell(p,vec2(.13,.66)),ell(q-vec2(.37,.18),vec2(.37,.26)),.12);d=join(d,ell(q-vec2(.28,-.25),vec2(.24,.19)),.08);}
-else if(f<2.5){d=ell(p,vec2(.57,.69));d=max(d,-ell(p-vec2(.17,.13),vec2(.24,.37)));d=join(d,ell(p+vec2(.34,.23),vec2(.25,.31)),.13);}
-else if(f<3.5){d=max(abs(length(p*vec2(1.,.8))-.48)-.07,-p.y-.28);d=min(d,seg(q,vec2(.48,-.65),vec2(.48,.02))-.065);d=min(d,seg(p,vec2(-.7,-.66),vec2(.7,-.66))-.04);}
-else if(f<4.5){d=seg(p,vec2(0,-.75),vec2(.04,.72))-.045;for(int i=0;i<5;i++){float j=float(i);vec2 a=vec2(0.,-.45+j*.23),b=vec2(.55-j*.065,a.y+.25);d=min(d,seg(q,a,b)-.025);d=min(d,seg(q,mix(a,b,.55),b+vec2(-.03,.18))-.014);}}
-else if(f<5.5){d=ell(p-vec2(-.17,.12),vec2(.46,.46));d=min(d,abs(length(vec2(p.x,p.y*2.8))-.69)-.025);d=min(d,ell(p-vec2(.57,-.43),vec2(.11,.11)));}
-else if(f<6.5){d=abs(p.y+.22*sin(p.x*4.))-.13;d=min(d,abs(p.y+.3+.12*sin(p.x*7.))-.045);d=max(d,abs(p.x)-.83);}
-else {d=2.;for(int i=0;i<6;i++){float j=float(i);vec2 c=vec2(sin(j*2.4+seed),cos(j*1.7+seed))*.43;d=join(d,ell(p-c,vec2(.12+.05*mod(j,3.),.23)),.09);}}
-return d;
-}
+
+// Periodic fields inspired by activator-inhibitor patterns, branching and tissue folding.
+// These are analytic approximations, not numerical biological simulations.
+float ridge(vec2 p){return 1.-abs(2.*fb(p)-1.);}
+vec2 warp(vec2 p,vec2 o){return p+.45*(vec2(fb(p*2.7+seed+o),fb(p.yx*2.7-seed-o))-.5);}
+float cells(vec2 p){vec2 i=floor(p),f=fract(p);float a=10.,b=10.;for(int y=-1;y<=1;y++){for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 h=vec2(hash(i+g+seed),hash(i+g+seed+37.));float d=length(g+h-f);if(d<a){b=a;a=d;}else b=min(b,d);}}return b-a;}
 void main(){
-vec2 p=(vUv-.5)*2.;float t=phase;vec2 orbit=vec2(cos(t),sin(t));
-float n=fb(p*3.+seed+orbit*.16);
-p+=.19*fluid*vec2(sin(p.y*4.+t),cos(p.x*4.-t));
-p+=.25*turbulence*(vec2(fb(p*4.+orbit+seed),fb(p.yx*4.-orbit+seed))- .5);
-p.x+=.12*(n-.5);p*=1.-.13*heat-.08*growth+.09*cold;
-float d=morph(p,family);float other=morph(p+vec2(.13,-.09),mod(family+2.,8.));
-d=join(d,other+.13-.12*growth,.12+.13*fluid);
-float grain=noise(p*190.+seed),fine=fb(p*18.+seed),vein=abs(sin(fb(p*5.+seed)*38.+p.y*5.));
-d+=(n-.5)*(.14+.23*rough)+(.5-fine)*.055;
-float edge=1.-smoothstep(-.015,.022+.13*diffuse+.07*air,d);
-float pigment=clamp(.35+n*.55+fine*.3,0.,1.);
-if(voice<.5){pigment*=.6+.4*sin(p.y*18.+n*7.+t);}
-else if(voice<1.5){pigment=mix(fine,grain,.4);edge*=smoothstep(.1,.4,fine);}
-else if(voice<2.5){edge*=.55+.45*n;pigment=n;}
-else if(voice<3.5){pigment=exp(-abs(d)*8.);}
-else if(voice<4.5){float facet=abs(sin((p.x+p.y)*22.+floor(n*6.)));pigment=mix(facet,n,.4);}
-else if(voice<5.5){edge*=smoothstep(.035,.18,vein);pigment=fine;}
-else if(voice<6.5){pigment=n;edge*=.4+.6*n;}
-else if(voice<7.5){pigment=pow(n,2.);edge*=smoothstep(.12,.4,n);}
-else if(voice<8.5){pigment=1.-smoothstep(.03,.22,vein);}
-else if(voice<9.5){pigment=.5+.5*sin(d*48.+n*4.);}
-else if(voice<10.5){pigment=exp(-abs(d)*13.);edge=max(edge*.45,pigment*.65);}
-else {pigment=fb(p*6.+vec2(sin(t),cos(t)));}
-edge*=mix(1.,smoothstep(.025,.16,vein),fragile*.7);
-float rim=exp(-abs(d)*38.);float relief=clamp(.5+(fb((p+vec2(.012,.015))*14.+seed)-fb(p*14.+seed))*6.,0.,1.);
-vec3 c=mix(ink,accent,clamp(pigment+.13*heat-.12*cold,0.,1.));
-c*=.65+.55*relief+rough*(grain-.5)*.35;
-c+=vec3(.16,.13,.09)*rim*(.4+light);
-float fade=1.-smoothstep(.79,.99,max(abs(p.x),abs(p.y)));
-gl_FragColor=vec4(c,clamp(edge*fade*level*(.52+.35*pigment+.13*weight),0.,1.));
+vec2 p=(vUv-.5)*2.;float t=phase;vec2 o=vec2(cos(t),sin(t));
+float sym=.35+.35*sin(seed);p.x=mix(p.x,abs(p.x)-.12,sym);
+p+=.08*fluid*vec2(sin(p.y*4.+t),cos(p.x*4.-t));
+p=warp(p,o*.12);p=warp(p*1.15,o*.08)/1.15;
+p+=.15*turbulence*(vec2(fb(p*5.+o*.2),fb(p.yx*5.-o*.2))-.5);
+p*=1.-.12*heat+.1*cold-.08*growth;
+float n=fb(p*3.+seed),r=length(p),ang=atan(p.y,p.x);
+float field=0.,detail=0.;
+if(family<.5){ // activator-inhibitor-like labyrinth
+float v=fb(p*5.+seed+o*.08);field=1.-smoothstep(.08,.24,abs(sin(v*24.+n*5.)));detail=v;
+}else if(family<1.5){ // cellular interfaces
+float v=cells(p*(5.+growth*3.)+seed);field=exp(-v*(9.+cold*8.));detail=fb(p*13.+seed);
+}else if(family<2.5){ // dendritic vascular networks
+float v=ridge(p*vec2(4.,2.)+seed);field=pow(v,7.)*smoothstep(.35,.7,n);detail=ridge(p*14.+seed);
+}else if(family<3.5){ // folded tissue
+float v=sin(p.y*18.+fb(p*3.+seed)*14.+.3*cos(t));field=pow(.5+.5*v,3.);detail=fb(p*8.+seed);
+}else if(family<4.5){ // radial skeletal growth
+float v=sin(ang*(5.+floor(mod(seed,5.)))+r*8.+n*5.);field=exp(-abs(v)*8.)*(.5+.5*sin(r*25.+n*4.));detail=n;
+}else if(family<5.5){ // spectral membranes
+float v=fb(p*4.+seed);field=exp(-abs(v-.47)*24.)+.35*exp(-abs(v-.57)*35.);detail=v;
+}else if(family<6.5){ // chemotactic trail-like networks
+float v=fb(p*6.+seed);field=pow(1.-abs(sin(v*18.+p.y*2.)),5.);detail=fb(p*16.+seed);
+}else{ // colony aggregation
+float v=cells(p*4.+seed);field=smoothstep(.12,.36,v)*smoothstep(.35,.62,n);detail=fb(p*10.+seed);}
+float silhouette=1.-smoothstep(.43,.94,r+.45*(n-.5));
+float holes=smoothstep(.23,.48,fb(p*2.+seed+17.));
+float grain=noise(p*180.+seed);
+float membrane=exp(-abs(n-.48)*30.);
+float fissure=abs(sin(fb(p*6.+seed)*42.));
+float alpha=field*silhouette*mix(.45,1.,holes);
+alpha=mix(alpha,alpha*.6+membrane*silhouette*.25,diffuse);
+alpha*=mix(1.,smoothstep(.025,.2,fissure),fragile*.7);
+alpha*=mix(1.,smoothstep(.1,.55,detail),rough*.7);
+alpha*=.65+.35*weight;
+float h=fb(p*12.+seed);float relief=clamp(.5+5.*(fb((p+vec2(.012,.018))*12.+seed)-h),0.,1.);
+vec3 c=mix(ink,accent,clamp(detail+.16*heat-.12*cold,0.,1.));
+c*=.55+.75*relief+rough*(grain-.5)*.22;
+c+=vec3(.14,.13,.11)*membrane*(.3+light);
+alpha*=1.-.35*air;
+float fade=1.-smoothstep(.78,.99,max(abs(p.x),abs(p.y)));
+gl_FragColor=vec4(c,clamp(alpha*fade*level,0.,1.));
 
 }`;
 const palettes=[['#172528','#d4d6b9','#80b8b3','#c9a17c'],['#e9e2d3','#242d31','#80664b','#a7a89c'],['#201b28','#d8a5a4','#796aa1','#e5c4a2'],['#152421','#d8d7b5','#79a38c','#e0a86a'],['#151515','#eeeeee','#999999','#555555'],['#eee9df','#20201d','#8e8070','#b6a18b'],['#101b26','#b4d5dc','#466b83','#d7bba3'],['#28231d','#c4a678','#826a54','#e4d7b9']];
@@ -78,8 +80,8 @@ let palette,seed,mode=false;const targets=Array(12).fill(0),levels=Array(12).fil
 for(let i=0;i<12;i++){const uniforms={phase:{value:0},seed:{value:0},voice:{value:i},level:{value:0},ink:{value:new THREE.Color()},accent:{value:new THREE.Color()}};for(const k of ['rough','heat','cold','fragile','diffuse','light','fluid','turbulence','family','growth','depth','weight','air'])uniforms[k]={value:0};
 const mat=new THREE.ShaderMaterial({vertexShader:vertex,fragmentShader:fragment,uniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide});
 const mesh=new THREE.Mesh(geo,mat);scene.add(mesh);meshes.push(mesh)}
-function reset(){seed=Math.random()*100;palette=palettes[Math.floor(Math.random()*palettes.length)];scene.background=new THREE.Color(palette[0]);targets.fill(0);targets[0]=.7;targets[8]=.65;targets[10]=.45;meshes.forEach((m,i)=>{const u=m.material.uniforms;u.seed.value=seed+i*17;u.family.value=(Math.floor(seed)%8+Math.floor(i/3))%8;u.ink.value.set(palette[1+i%3]);u.accent.value.set(palette[1+(i+1)%3]);m.position.set(Math.sin(seed+i*2.4)*.38,Math.cos(seed+i*1.7)*.38,(i-5.5)*.12);m.rotation.z=Math.sin(seed+i)*.7;m.scale.setScalar(.65+.35*Math.abs(Math.sin(seed+i*3)));});return targets.map((v,i)=>v?i:-1).filter(i=>i>=0)}
+function reset(){seed=Math.random()*100;palette=palettes[Math.floor(Math.random()*palettes.length)];scene.background=new THREE.Color(palette[0]);targets.fill(0);targets[0]=.85;targets[8]=.85;targets[10]=.7;meshes.forEach((m,i)=>{const u=m.material.uniforms;u.seed.value=seed+i*17;u.family.value=(Math.floor(seed)%8+Math.floor(i/2))%8;u.ink.value.set(palette[1+i%3]);u.accent.value.set(palette[1+(i+1)%3]);m.position.set(Math.sin(seed+i*2.4)*.38,Math.cos(seed+i*1.7)*.38,(i-5.5)*.12);m.rotation.z=Math.sin(seed+i)*.7;m.scale.setScalar(.65+.35*Math.abs(Math.sin(seed+i*3)));});return targets.map((v,i)=>v?i:-1).filter(i=>i>=0)}
 reset();
-function render(seconds,settle=false){const t=(seconds%12)*T/12;meshes.forEach((m,i)=>{levels[i]=settle?targets[i]:levels[i]+(targets[i]-levels[i])*.09;const u=m.material.uniforms;u.phase.value=t;u.level.value=levels[i];for(const [k,j] of Object.entries({rough:1,heat:3,cold:4,fragile:5,diffuse:6,light:10,fluid:0,turbulence:11,growth:8,depth:9,weight:7,air:2}))u[k].value=levels[j];m.visible=levels[i]>.002;m.position.z=(i-5.5)*(.08+.09*levels[9])+.035*Math.sin(t+i);m.rotation.y=.12*Math.sin(t+i*.7);m.rotation.x=.09*Math.cos(t+i);});camera.position.x=.045*Math.sin(t);camera.lookAt(0,0,0);if(mode)stereo.render(scene,camera);else renderer.render(scene,camera)}
+function render(seconds,settle=false){const t=(seconds%12)*T/12;meshes.forEach((m,i)=>{levels[i]=settle?targets[i]:levels[i]+(targets[i]-levels[i])*.09;const u=m.material.uniforms;u.phase.value=t;u.level.value=levels[i];for(const [k,j] of Object.entries({rough:1,heat:3,cold:4,fragile:5,diffuse:6,light:10,fluid:0,turbulence:11,growth:8,depth:9,weight:7,air:2}))u[k].value=levels[j];m.visible=levels[i]>.002;m.position.z=(i-5.5)*(.08+.09*levels[9])+.035*Math.sin(t+i);m.rotation.y=.045*Math.sin(t+i*.7);m.rotation.x=.035*Math.cos(t+i);});camera.position.x=.025*Math.sin(t);camera.lookAt(0,0,0);if(mode)stereo.render(scene,camera);else renderer.render(scene,camera)}
 return {render,reset,toggle(i){targets[i]=targets[i]?0:.75;return !!targets[i]},boost(i){targets[i]=Math.min(1,targets[i]+.25)},clear(){targets.fill(0)},setMode(v){mode=v},dispose(){geo.dispose();meshes.forEach(m=>m.material.dispose());stereo.dispose();renderer.dispose()}}
 }
