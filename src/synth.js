@@ -6,19 +6,23 @@ const operations=[
 'p.xy=rot(.7*sin(p.z*2.+t))*p.xy; p+=.22*sin(p.yzx*3.+t);',
 'd+=.13*sin(p.x*23.)*sin(p.y*21.)*sin(p.z*19.); rough=min(1.,rough+.3);',
 'p*=vec3(1.1,.8,1.1); d+=max(0.,.13-length(sin(p*4.)));',
-'p+=.17*cos(p.zxy*4.-t); d-=.10; color=mix(color,vec3(.95,.27,.07),.55);',
-'p=mix(p,abs(p)-.25,.7); d+=.09*sin(p.x*15.)*sin(p.y*15.); color=mix(color,vec3(.12,.53,.9),.65);',
+'p+=.17*cos(p.zxy*4.-t); d-=.10; color=mix(color,vec3(.78,.62,.43),.32);',
+'p=mix(p,abs(p)-.25,.7); d+=.09*sin(p.x*15.)*sin(p.y*15.); color=mix(color,vec3(.47,.65,.72),.38);',
 'd+=max(0.,.12-abs(sin(p.x*6.+p.y*3.+sin(p.z*5.))));',
-'p+=.12*sin(p.zxy*5.+t); color=mix(color,vec3(.72,.16,.46),.45);',
-'p*=1.16; d-=.09; rough*=.6; color*=.72;',
+'p+=.12*sin(p.zxy*5.+t); color=mix(color,vec3(.73,.57,.63),.24);',
+'p*=1.16; d-=.09; rough*=.6; color*=.88;',
 'p+=.2*sin(p.yzx*4.+t); d-=.13*exp(-3.*length(p-vec3(.65,.1,0.)));',
 'p.z+=.35*sin(p.x*3.)*cos(p.y*3.); d+=max(0.,.42-length(p+vec3(.1,.25,.7)));',
-'color=mix(color,.5+.45*cos(vec3(0.,2.,4.)+length(p)*7.+t),.65); rough*=.4;',
+'color=mix(color,vec3(.72,.77,.78)+.09*cos(vec3(0.,2.,4.)+length(p)*7.+t),.32); rough*=.4;',
 'p.xz=rot(1.1*sin(p.y*2.+t))*p.xz; p.yz=rot(.5*sin(p.x*3.-t))*p.yz;'
 ];
 const vert='varying vec2 uvp;void main(){uvp=uv;gl_Position=vec4(position.xy,0.,1.);}';
 function shader(seq,seed){
  const ordered=[...seq].reverse().map((i,j)=>'{float t=phase+'+(j*.71).toFixed(3)+';'+operations[i]+'}').join('\n');
+ const palette=[
+[.47,.65,.65],[.59,.54,.48],[.72,.74,.82],[.77,.65,.49],[.54,.66,.76],[.72,.62,.67],
+[.68,.72,.63],[.42,.45,.48],[.49,.61,.52],[.49,.55,.66],[.79,.75,.65],[.59,.53,.68]
+][seq[0]??0];
  const first=seq[0]??0,base=[
  'length(vec2(length(p.xz)-.77,p.y))-.36',
  'length(p)-1.+.15*sin(p.x*7.)*sin(p.y*7.)*sin(p.z*7.)',
@@ -35,7 +39,7 @@ function shader(seq,seed){
  ][first];
  return `varying vec2 uvp;uniform float phase;uniform float presence;
  mat2 rot(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
- vec4 field(vec3 p){float d=0.;float rough=.32;vec3 color=vec3(.19,.63,.62);
+ vec4 field(vec3 p){float d=0.;float rough=.32;vec3 color=vec3(${palette.map(v=>v.toFixed(3)).join(",")});
  p.xz=rot(${seed.toFixed(4)})*p.xz;
  ${ordered}
  float shape=${base};d=shape+clamp(d,-.45,.45);
@@ -50,11 +54,17 @@ function shader(seq,seed){
  for(int i=0;i<108;i++){p=ro+rd*travel;float d=sdf(p);if(d<.003){hit=true;break;}travel+=clamp(d*.22,.003,.14);if(travel>7.)break;}
  if(!hit){gl_FragColor=vec4(bg,1.);return;}
  vec2 e=vec2(.004,0.);vec3 n=normalize(vec3(sdf(p+e.xyy)-sdf(p-e.xyy),sdf(p+e.yxy)-sdf(p-e.yxy),sdf(p+e.yyx)-sdf(p-e.yyx))+vec3(.00001));
- vec3 l=normalize(vec3(-.5,.8,1.));float diffuse=.35+.65*max(0.,dot(n,l));
- float spec=pow(max(0.,dot(n,normalize(l-rd))),32.);
+ vec3 l=normalize(vec3(-.5,.8,1.));float diffuse=.57+.43*max(0.,dot(n,l));
+ float spec=pow(max(0.,dot(n,normalize(l-rd))),48.);
  float rim=pow(1.-max(0.,dot(n,-rd)),2.);
- vec3 c=field(p).rgb;float veins=.5+.5*sin(p.x*18.+p.y*7.+sin(p.z*12.)*2.+phase);
- c=mix(c,c*.35,veins*.27);c=c*diffuse+spec*.65+rim*.18;
+ vec3 c=field(p).rgb;
+ float layers=.5+.5*sin(p.x*4.+p.y*3.+sin(p.z*5.)*.8+phase);
+ float grain=.5+.5*sin(p.x*39.+sin(p.y*31.)*sin(p.z*27.));
+ c=mix(c,vec3(.94,.91,.85),layers*.30);
+ c*=.98+grain*.02;
+ float occlusion=clamp(sdf(p+n*.075)/.075,.35,1.);
+ c=c*diffuse*mix(.78,1.,occlusion)+spec*.32+rim*.12;
+ c=mix(c,vec3(.96,.97,.98),rim*.16);
  gl_FragColor=vec4(clamp(c,0.,1.),1.);
  }`;
 }
