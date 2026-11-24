@@ -69,7 +69,7 @@ float fade=1.-smoothstep(.78,.99,max(abs(p.x),abs(p.y)));
 gl_FragColor=vec4(c,clamp(alpha*fade*level,0.,1.));
 
 }`;
-const palettes=[['#172528','#d4d6b9','#80b8b3','#c9a17c'],['#e9e2d3','#242d31','#80664b','#a7a89c'],['#201b28','#d8a5a4','#796aa1','#e5c4a2'],['#152421','#d8d7b5','#79a38c','#e0a86a'],['#151515','#eeeeee','#999999','#555555'],['#eee9df','#20201d','#8e8070','#b6a18b'],['#101b26','#b4d5dc','#466b83','#d7bba3'],['#28231d','#c4a678','#826a54','#e4d7b9']];
+const palettes=[['#ffffff','#182d32','#527d80','#a5b9b5'],['#ffffff','#242d31','#80664b','#a7a89c'],['#ffffff','#30243c','#796aa1','#b58c90'],['#ffffff','#233c31','#648b75','#b28b52'],['#ffffff','#171717','#555555','#999999'],['#ffffff','#20201d','#8e8070','#b6a18b'],['#ffffff','#18374b','#466b83','#8daeb9'],['#ffffff','#382b21','#826a54','#b99c78']];
 export function createSynth(canvas){
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
 renderer.setPixelRatio(1);renderer.setSize(800,800,false);
