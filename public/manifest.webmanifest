@@ -1,1 +1,1 @@
-{"name":"Sensography","short_name":"Sensography","start_url":"/","display":"standalone","background_color":"#151817","theme_color":"#151817","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml"}]}
+{"name":"Morphoz — Le psychographe","short_name":"Morphoz","start_url":"./","display":"standalone","background_color":"#f4f2ed","theme_color":"#f4f2ed","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
