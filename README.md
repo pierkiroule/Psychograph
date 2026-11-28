@@ -1,35 +1,5 @@
-# Morphoz •° — Le psychographe
+# Morphoz 4 — Psychographe projectif
 
-Importe tes souvenirs. Révèle ton rêve.
+Prototype de médiation créative, non diagnostique. Disque procédural GPU, douze pictomoods combinables, transitions continues, mode à deux, pause, intensité et sauvegarde locale d'une composition. Aucun import d'image ni transfert de données. Plein écran 2D. Les fonctions audio, VR et export de la version précédente ne sont pas intégrées dans cette branche expérimentale.
 
-React 19, Vite 6, Three.js, GLSL et Web Audio. Traitement local, sans serveur de données ni IA générative.
-
-- Composition multicouche et bruit Simplex.
-- Dramaturgie sonore, particules et bloom.
-- Abstraction réglable et variations.
-- Export vidéo 1080p en temps réel selon navigateur.
-- WebXR : écran cylindrique frontal fixe, 180°, monoscopique, dans le navigateur Quest. HTTPS requis. Pas d'export VR180 stéréoscopique.
-- PWA : cache de l'application après premier chargement en ligne ; les médias personnels restent en mémoire pendant la session.
-
-## Développement
-
-```sh
-npm install
-npm run dev
-npm run build
-npm run preview
-```
-
-## Recette manuelle
-
-1. Importer des photos portrait et paysage ; révéler, changer l'abstraction et la variation.
-2. Importer un audio ; vérifier lecture, pause et reprise.
-3. Exporter une courte vidéo, vérifier son et image.
-4. Sur Quest, entrer et sortir de la VR, vérifier orientation, fluidité et reprise de la prévisualisation.
-5. Après installation du service worker, recharger hors ligne.
-6. Vérifier l'absence de coutures et de clignotements sur plusieurs ensembles d'images.
-
-Médiation créative expérimentale, sans efficacité thérapeutique démontrée. Interrompre l'expérience en cas d'inconfort.
-
-## Morphoz 3
-Socle reconnaissable à deux images, correspondances locales par gradients et descripteurs normalisés (heuristiques, non sémantiques), fusion à masques organiques et couche onirique. Les correspondances peu fiables sont rejetées. Ambiances Apaisant/Lumineux/Mystérieux et souvenir de départ optionnel. Le curseur Souvenir–Rêve pilote le dosage de la couche onirique. Aucun modèle IA.
+npm install && npm run build
