@@ -30,3 +30,6 @@ npm run preview
 6. Vérifier l'absence de coutures et de clignotements sur plusieurs ensembles d'images.
 
 Médiation créative expérimentale, sans efficacité thérapeutique démontrée. Interrompre l'expérience en cas d'inconfort.
+
+## Morphoz 3
+Socle reconnaissable à deux images, correspondances locales par gradients et descripteurs normalisés (heuristiques, non sémantiques), fusion à masques organiques et couche onirique. Les correspondances peu fiables sont rejetées. Ambiances Apaisant/Lumineux/Mystérieux et souvenir de départ optionnel. Le curseur Souvenir–Rêve pilote le dosage de la couche onirique. Aucun modèle IA.
