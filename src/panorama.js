@@ -18,19 +18,19 @@ export async function enterPanorama(engine,onEnd){
  // Reverse horizontal texture coordinates for inside viewing.
  const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));uv.needsUpdate=true;
  scene.add(screen);screen.position.y=0;
- let closed=false,initialized=false,last=performance.now(),lastDraw=0;
- const cleanup=()=>{if(closed)return;closed=true;renderer.setAnimationLoop(null);renderer.xr.enabled=false;engine.panorama=null;engine.vrTarget=null;target.dispose();geometry.dispose();material.dispose();renderer.setRenderTarget(null);engine.resize(engine.previewWidth,engine.previewHeight);if(wasPlaying)engine.play();else{engine.audio?.pause();engine.render()}onEnd?.(wasPlaying)};
+ let closed=false,initialized=false,lastDraw=performance.now();
+ const cleanup=()=>{if(closed)return;closed=true;renderer.setAnimationLoop(null);renderer.xr.enabled=false;engine.panorama=null;engine.vrTarget=null;target.dispose();geometry.dispose();material.dispose();renderer.setRenderTarget(null);if(!engine.disposed)engine.resize(engine.previewWidth,engine.previewHeight);if(!engine.disposed){if(wasPlaying)engine.play();else{engine.audio?.pause();engine.render()}}onEnd?.(wasPlaying)};
  session.addEventListener('end',cleanup,{once:true});
- engine.panorama=session;engine.vrTarget=target;
+ engine.panorama=session;engine.vrTarget=target;engine.uniforms.res.value.set(target.width,target.height);
  try{
  renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(session);
  if(engine.audio){try{await engine.ac.resume();await engine.audio.play()}catch{}}
  renderer.setAnimationLoop((now,frame)=>{
  if(closed)return;
  if(!initialized){const pose=frame?.getViewerPose(renderer.xr.getReferenceSpace());if(pose){const p=pose.transform.position,q=pose.transform.orientation;scene.position.set(p.x,p.y,p.z);const e=new THREE.Euler().setFromQuaternion(new THREE.Quaternion(q.x,q.y,q.z,q.w),'YXZ');scene.rotation.y=e.y;initialized=true;}}
- const dt=Math.min(.1,(now-last)/1000);last=now;
+ 
  // Film update at 30 Hz, headset presentation at native XR refresh.
- if(now-lastDraw>=32){lastDraw=now;engine.readAudio();engine.clock=engine.audio&&!engine.audio.paused?engine.audio.currentTime:engine.clock+dt*2;renderer.xr.enabled=false;renderer.setRenderTarget(target);engine.render();renderer.setRenderTarget(null);renderer.xr.enabled=true;}
+ if(now-lastDraw>=32){const dt=Math.min(.15,(now-lastDraw)/1000);lastDraw=now;engine.readAudio();engine.clock=engine.audio&&!engine.audio.paused?engine.audio.currentTime:engine.clock+dt;renderer.xr.enabled=false;const previous=renderer.getRenderTarget();try{renderer.setRenderTarget(target);engine.render()}finally{renderer.setRenderTarget(previous);renderer.xr.enabled=true}}
  renderer.render(scene,camera);
  });
  return session;
