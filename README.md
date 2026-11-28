@@ -1,5 +1,5 @@
-# Morphoz 4 — Psychographe projectif
+# Morphoz 5 — Une minute pour soi
 
-Prototype de médiation créative, non diagnostique. Disque procédural GPU, douze pictomoods combinables, transitions continues, mode à deux, pause, intensité et sauvegarde locale d'une composition. Aucun import d'image ni transfert de données. Plein écran 2D. Les fonctions audio, VR et export de la version précédente ne sont pas intégrées dans cette branche expérimentale.
+Six intentions, expérience audiovisuelle de 60 secondes, synthèse Web Audio locale (battements binauraux stéréo, nappes, bruit filtré, réverbération), paysage procédural et fin progressive. Arrêt immédiat, mode silencieux, volume limité, arrêt en arrière-plan. Aucun import ni compte. Prototype de relaxation, sans efficacité clinique établie. Casque nécessaire pour la perception binaurale. VR et export non inclus dans cette branche.
 
 npm install && npm run build
